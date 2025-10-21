@@ -1,0 +1,27 @@
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log
+
+# Provider binaries / plugin folders
+terraform-provider-*
+terraform.d/plugins/
+**/terraform-provider-*
+
+# Local bootstrap artifacts
+terraform/bootstrap/windows_amd64/
+terraform/bootstrap/**/windows_amd64/
+terraform/bootstrap/**/terraform-provider-*
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
