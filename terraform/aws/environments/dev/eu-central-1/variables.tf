@@ -4,6 +4,12 @@ variable "environment" {
   default     = "dev"
 }
 
+variable "project" {
+  description = "Project name"
+  type        = string
+  default     = "incode-demo-1"
+}
+
 variable "region" {
   description = "AWS region"
   type        = string
