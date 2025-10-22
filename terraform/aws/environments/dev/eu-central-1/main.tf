@@ -19,6 +19,42 @@ module "ecr" {
   }
 }
 
+########################################### Security Group for application load balancer ##############
+module "alb_sg" {
+  source  = "terraform-aws-modules/security-group/aws"
+
+  name        = "${var.project}-${var.environment}-${var.region}-alb-sg"
+  description = "Security group for application load balancer"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress_with_cidr_blocks = [
+    {
+      description = "Allow HTTP (8080) from VPC"
+      from_port   = 80
+      to_port     = 80
+      protocol    = "tcp"
+      cidr_blocks = "87.116.165.146/32"
+    }
+  ]
+
+  egress_with_cidr_blocks = [
+    {
+      description = "Allow all outbound"
+      from_port   = 0
+      to_port     = 0
+      protocol    = "-1"
+      cidr_blocks = "0.0.0.0/0"
+    }
+  ]
+
+  tags = {
+    Environment = var.environment
+    Project     = var.project
+  }
+
+  depends_on = [module.vpc]
+}
+
 ########################################### Security Group for application ############################
 module "app_sg" {
   source  = "terraform-aws-modules/security-group/aws"
@@ -32,6 +68,13 @@ module "app_sg" {
       description = "Allow HTTP (8080) from VPC"
       from_port   = 8080
       to_port     = 8080
+      protocol    = "tcp"
+      cidr_blocks = var.vpc_cidr
+    },
+    {
+      description = "Allow SSH (22) from VPC"
+      from_port   = 22
+      to_port     = 22
       protocol    = "tcp"
       cidr_blocks = var.vpc_cidr
     }
@@ -153,4 +196,50 @@ module "db" {
   }
 
   depends_on = [module.vpc, module.rds_sg]
+}
+
+
+########################################### ALB #################################################################
+module "alb" {
+  source = "../../../modules/alb"
+
+  alb_name        = "${var.project}-${var.environment}-alb"
+  alb_sg_id       = module.alb_sg.security_group_id
+  public_subnets  = module.vpc.public_subnets
+  vpc_id          = module.vpc.vpc_id
+  target_port     = 8080
+  health_check_path = "/liveness"
+
+  tags = {
+    Environment = var.environment
+    Project     = var.project
+  }
+
+}
+
+########################################### Auto Scaling Group ##########################################
+module "asg" {
+  source = "../../../modules/asg"
+
+  asg_name          = "${var.project}-${var.environment}-asg"
+  instance_type     = "t3.micro"
+  instance_sg_id    = module.app_sg.security_group_id
+  ecr_repo          = module.ecr.repository_url
+  container_port    = 8080
+  region            = var.region
+  app_version       = "latest"
+
+  min_size         = 2
+  max_size         = 2
+  desired_capacity = 2
+
+  db_endpoint      = module.db.db_instance_endpoint
+  db_secret_arn    = module.db.db_instance_master_user_secret_arn
+
+  ssh_key_name     = var.ssh_key_name
+
+  private_subnets   = module.vpc.nat_subnets
+  target_group_arn  = module.alb.target_group_arn
+
+  depends_on = [module.vpc, module.app_sg, module.alb]
 }

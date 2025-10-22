@@ -32,3 +32,11 @@ output "app_sg_id" {
 output "rds_sg_id" {
   value = module.rds_sg.security_group_id
 }
+
+output "db_instance_endpoint" {
+  value = module.db.db_instance_endpoint
+}
+
+output "db_instance_master_user_secret_arn" {
+  value = module.db.db_instance_master_user_secret_arn
+}
