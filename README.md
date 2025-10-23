@@ -13,33 +13,43 @@ This repo demonstrates:
 
 Top-level:
 ```
+.github/
+	workflows/
+		build-and-publish.yml
+		terraform-deploy-dev.yml
+.gitignore
 README.md
 apps/
 	app.py
 	Dockerfile
+	README.md
 	requirements.txt
 	version.txt
-	README.md
 terraform/
 	bootstrap/
 		main.tf
 		README.md
 	aws/
+		README.md
 		environments/
 			dev/
 				eu-central-1/
+					backend.tf
+					dev.tfvars.example
 					main.tf
-					variables.tf
 					outputs.tf
+					variables.tf
+					versions.tf
 		modules/
-			vpc/
-			ecr/
 			alb/
 			asg/
 			ec2/
+			ecr/
+			vpc/
 ```
 
 Key directories:
+- `.github/workflows/` — GitHub Actions CI/CD pipeline definitions for automated building, publishing, and deployment.
 - `apps/` — sample Flask application source code, Dockerfile, and version tracking. Contains the Python web application that gets containerized and deployed to EC2 instances.
 - `terraform/bootstrap/` — one-time setup for Terraform remote state backend. Creates S3 bucket and DynamoDB table for state storage and locking.
 - `terraform/aws/environments/*` — environment configuration that wires modules together. Each environment folder (for example `dev/eu-central-1`) contains the top-level `main.tf` that instantiates modules for that environment.
