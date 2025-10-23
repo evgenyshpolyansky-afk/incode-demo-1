@@ -21,7 +21,7 @@ resource "aws_autoscaling_group" "this" {
   tag {
     key                 = "LaunchTemplateVersion"
     value               = aws_launch_template.this.latest_version
-    propagate_at_launch = true
+    propagate_at_launch = false
   }
 
   tag {

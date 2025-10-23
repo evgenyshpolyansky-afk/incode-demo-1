@@ -43,6 +43,13 @@ Key directories:
 	- `asg` — Auto Scaling Group backed by a Launch Template. User-data pulls a Docker image from ECR and runs the app.
 	- `ec2` — single-instance module (used for a bastion host). Accepts security group IDs and instance profile configuration.
 
+## Application Endpoints
+
+The deployed Flask application provides the following endpoints for monitoring and health checks:
+
+- **`/liveness`** - Demonstrates that the application is up and running. This is a simple health check endpoint that returns a basic response to confirm the Flask application container is operational.
+- **`/readiness`** - Demonstrates database connectivity. Returns HTTP 200 if the database connection is successful, or HTTP 503 with an error message if the database connection fails. This endpoint is useful for load balancer health checks and deployment validation.
+
 ## How it operates (high level)
 
 1. Network & infra: The `vpc` module creates the VPC and subnets. Environment `main.tf` wires up security groups and other infra modules.
