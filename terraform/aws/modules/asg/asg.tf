@@ -28,7 +28,7 @@ resource "aws_autoscaling_group" "this" {
 
     preferences {
       min_healthy_percentage = 50
-      instance_warmup        = 300
+      instance_warmup        = 120
     }
   }
 }
