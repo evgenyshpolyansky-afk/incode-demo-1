@@ -15,6 +15,9 @@ Top-level:
 ```
 README.md
 terraform/
+	bootstrap/
+		main.tf
+		README.md
 	aws/
 		environments/
 			dev/
@@ -31,6 +34,7 @@ terraform/
 ```
 
 Key directories:
+- `terraform/bootstrap/` — one-time setup for Terraform remote state backend. Creates S3 bucket and DynamoDB table for state storage and locking.
 - `terraform/aws/environments/*` — environment configuration that wires modules together. Each environment folder (for example `dev/eu-central-1`) contains the top-level `main.tf` that instantiates modules for that environment.
 - `terraform/aws/modules/*` — reusable Terraform modules used by environments. Notable modules in this repo:
 	- `vpc` — creates VPC, public/private subnets and related networking.
@@ -55,12 +59,53 @@ Key directories:
 - The ASG/EC2 instances are given an IAM role with permission to read the secret. The `user_data` script uses the AWS CLI and `jq` to fetch and parse the secret at boot and then starts the container with the credentials in environment variables.
 - This keeps credentials out of Terraform state and prevents accidental exposure.
 
-## Deployment / common commands
+## CI/CD Pipeline
+
+This repository includes automated GitHub Actions workflows for continuous integration and deployment:
+
+### Build and Publish Pipeline
+- **Workflow**: `build-and-publish.yml`
+- **Trigger**: Push to `main` branch
+- **Actions**: 
+  - Builds the sample Flask application Docker image
+  - Publishes the image to AWS ECR
+  - Updates the version tag in `apps/version.txt`
+
+### Terraform Deployment Pipeline
+- **Workflow**: `terraform-deploy-dev.yml`
+- **Trigger**: Automatically runs after successful completion of the build pipeline
+- **Environment**: `dev/eu-central-1`
+- **Actions**:
+  - Reads the updated application version from `apps/version.txt`
+  - Runs Terraform apply to update the infrastructure with the new image version
+  - Triggers ASG Instance Refresh for zero-downtime deployment
+
+The pipelines work together to provide automated deployment: when code is pushed to `main`, the application is built, published, and automatically deployed to the dev environment.
+
+## Setup and Manual Deployment
+
+### Initial Setup (One-time)
+Before deploying environments, set up the Terraform remote state backend:
+
+```powershell
+# Navigate to bootstrap folder
+cd terraform/bootstrap
+
+# Initialize and apply (uses local state for this one-time setup)
+terraform init
+terraform apply
+```
+
+This creates:
+- **S3 bucket**: `evgeny-shpolyansky-incode-demo-1-state-bucket` (with versioning and encryption)
+- **DynamoDB table**: `evgeny-shpolyansky-incode-demo-1-terraform-locks` (for state locking)
+
+### Environment Deployment
 Run these from an environment folder (for example `terraform/aws/environments/dev/eu-central-1`):
 
 ```powershell
-# Initialize the working directory (no backend used for quick local validation)
-terraform init -backend=false
+# Initialize with remote backend (after bootstrap is complete)
+terraform init
 
 # Validate the configuration
 terraform validate
@@ -72,4 +117,28 @@ terraform plan -var-file=dev.tfvars
 terraform apply -var-file=dev.tfvars
 ```
 
-**Note:** EC2 SSH key pairs and account-level IAM users are expected to be created and managed outside this repository. Pass an existing SSH key name to the modules via the `ssh_key_name` variable. Modules create instance roles/profiles for EC2 where required, but broader IAM users, policies, or key-pair management should be performed separately and supplied to this Terraform configuration.
+**Note:** EC2 SSH key pairs and account-level IAM users (for personal use and GitHub actions pipelines) are expected to be created and managed outside this repository. Pass an existing SSH key name to the modules via the `ssh_key_name` variable. Modules create instance roles/profiles for EC2 where required, but broader IAM users, policies, or key-pair management should be performed separately and supplied to this Terraform configuration.
+
+## Future Improvements
+
+The following enhancements are identified for future implementation to make this demo more production-ready:
+
+### Security & Networking
+- **DNS**: Implement custom domain management with Route 53 for user-friendly URLs
+- **HTTPS**: Add SSL/TLS termination at the ALB with certificate management via ACM
+- **WAF**: Integrate AWS Web Application Firewall for additional security layer
+
+### Monitoring & Observability
+- **Log Management**: Implement comprehensive logging with CloudWatch for both ALB access logs and application logs, including log aggregation, retention policies, and structured logging
+- **Enhanced Monitoring**: Enable CloudWatch detailed monitoring for EC2 instances and RDS instances for better performance visibility
+- **RDS Performance Insights**: Implement Performance Insights for RDS to monitor database performance, identify bottlenecks, and optimize query performance
+
+### Scalability & Reliability  
+- **ASG Scaling Policy**: Implement auto-scaling policies based on CPU, memory, or custom CloudWatch metrics
+- **ECR Registry Replication**: Set up cross-region ECR replication for multi-environment deployments, or integrate with external public/private registries
+
+### Development & Operations
+- **CI for Pull Requests**: Extend CI/CD pipeline to include:
+  - Terraform plan validation and security scanning for infrastructure changes
+  - Sample application testing, linting, and security scans
+  - Integration tests for the complete stack
