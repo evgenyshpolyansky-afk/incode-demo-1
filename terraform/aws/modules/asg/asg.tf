@@ -8,7 +8,7 @@ resource "aws_autoscaling_group" "this" {
 
   launch_template {
     id      = aws_launch_template.this.id
-    version = aws_launch_template.this.latest_version
+    version = "$Latest"
   }
   target_group_arns         = [var.target_group_arn]
 
