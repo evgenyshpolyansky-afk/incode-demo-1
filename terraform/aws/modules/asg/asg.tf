@@ -24,6 +24,12 @@ resource "aws_autoscaling_group" "this" {
     propagate_at_launch = false
   }
 
+  tag {
+    key                 = "app_version"
+    value               = var.app_version
+    propagate_at_launch = false
+  }
+
   depends_on = [
     aws_launch_template.this
   ]
@@ -36,7 +42,7 @@ resource "aws_autoscaling_group" "this" {
 
     preferences {
       min_healthy_percentage = 50
-      instance_warmup        = 120
+      instance_warmup        = 90
     }
   }
 }
