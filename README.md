@@ -30,7 +30,6 @@ terraform/
 		main.tf
 		README.md
 	aws/
-		README.md
 		environments/
 			dev/
 				eu-central-1/
