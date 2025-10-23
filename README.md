@@ -71,3 +71,5 @@ terraform plan -var-file=dev.tfvars
 # Apply (inspect plan first in real usage)
 terraform apply -var-file=dev.tfvars
 ```
+
+**Note:** EC2 SSH key pairs and account-level IAM users are expected to be created and managed outside this repository. Pass an existing SSH key name to the modules via the `ssh_key_name` variable. Modules create instance roles/profiles for EC2 where required, but broader IAM users, policies, or key-pair management should be performed separately and supplied to this Terraform configuration.

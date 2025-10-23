@@ -1,0 +1,61 @@
+name: Build and publish Docker image
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-push:
+    if: ${{ github.actor != 'github-actions[bot]' && !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-central-1
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Compute image tag (timestamp + short sha)
+        id: meta
+        run: |
+          SHORT_SHA=$(git rev-parse --short=7 HEAD)
+          TIMESTAMP=$(date -u +%Y%m%d%H%M%S)
+          TAG="${TIMESTAMP}-${SHORT_SHA}"
+          echo "TAG=${TAG}" >> $GITHUB_ENV
+          echo "SHORT_SHA=${SHORT_SHA}" >> $GITHUB_ENV
+          echo "TIMESTAMP=${TIMESTAMP}" >> $GITHUB_ENV
+
+      - name: Build and push Docker image to ECR
+        uses: docker/build-push-action@v4
+        with:
+          context: ./apps
+          file: ./apps/Dockerfile
+          push: true
+          tags: |
+            863418022499.dkr.ecr.eu-central-1.amazonaws.com/incode-demo-1-app:${{ env.TAG }}
+            863418022499.dkr.ecr.eu-central-1.amazonaws.com/incode-demo-1-app:latest
+
+      - name: Update apps/version.txt with pushed image URI
+        env:
+          IMAGE_URL: 863418022499.dkr.ecr.eu-central-1.amazonaws.com/incode-demo-1-app:${{ env.TAG }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "${IMAGE_URL}" > apps/version.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/version.txt
+          # commit with skip ci to avoid retriggering workflow
+          git commit -m "ci: update apps/version.txt -> ${IMAGE_URL} [skip ci]" || echo "no changes to commit"
+          git push origin HEAD:main
