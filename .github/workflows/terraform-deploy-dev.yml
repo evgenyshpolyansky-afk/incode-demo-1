@@ -1,7 +1,10 @@
 name: Deploy Terraform (dev)
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Build and publish Docker image"]
+    types:
+      - completed
     branches: [ main ]
 
 permissions:
@@ -9,7 +12,7 @@ permissions:
 
 jobs:
   terraform-deploy-dev:
-    if: ${{ github.actor == 'github-actions[bot]' && contains(github.event.head_commit.message, '[skip ci]') }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     environment: dev
     steps:
