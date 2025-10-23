@@ -59,7 +59,7 @@ The deployed Flask application provides the following endpoints for monitoring a
 
 ## How it operates (high level)
 
-1. Network & infra: The `vpc` module creates the VPC and subnets. Environment `main.tf` wires up security groups and other infra modules.
+1. Network & infra: The `vpc` module creates the VPC and subnets.
 2. RDS: The environment creates an RDS instance (MySQL) via a registry module. The RDS module creates a Secrets Manager secret that contains the DB credentials and outputs the secret ARN.
 3. ECR & app: The `ecr` module contains an ECR repository where you push the sample Flask Docker image.
 4. ALB: The `alb` module creates an Application Load Balancer with target groups that distributes incoming traffic across the EC2 instances in the Auto Scaling Group. The ALB provides health checks and ensures traffic is only routed to healthy instances.
@@ -132,7 +132,7 @@ terraform plan -var-file=dev.tfvars
 terraform apply -var-file=dev.tfvars
 ```
 
-**Note:** EC2 SSH key pairs and account-level IAM users (for personal use and GitHub actions pipelines) are expected to be created and managed outside this repository. Pass an existing SSH key name to the modules via the `ssh_key_name` variable. Modules create instance roles/profiles for EC2 where required, but broader IAM users, policies, or key-pair management should be performed separately and supplied to this Terraform configuration.
+**Note:** EC2 SSH key pairs and account-level IAM users (for personal use and GitHub actions pipelines) are expected to be created and managed outside this repository. Pass an existing SSH key name to the modules via the `ssh_key_name` variable. Modules create instance roles/profiles for EC2 where required, but broader IAM users, policies, or key-pair management should be performed separately.
 
 ## Future Improvements
 
