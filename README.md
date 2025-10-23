@@ -14,6 +14,12 @@ This repo demonstrates:
 Top-level:
 ```
 README.md
+apps/
+	app.py
+	Dockerfile
+	requirements.txt
+	version.txt
+	README.md
 terraform/
 	bootstrap/
 		main.tf
@@ -34,6 +40,7 @@ terraform/
 ```
 
 Key directories:
+- `apps/` — sample Flask application source code, Dockerfile, and version tracking. Contains the Python web application that gets containerized and deployed to EC2 instances.
 - `terraform/bootstrap/` — one-time setup for Terraform remote state backend. Creates S3 bucket and DynamoDB table for state storage and locking.
 - `terraform/aws/environments/*` — environment configuration that wires modules together. Each environment folder (for example `dev/eu-central-1`) contains the top-level `main.tf` that instantiates modules for that environment.
 - `terraform/aws/modules/*` — reusable Terraform modules used by environments. Notable modules in this repo:
