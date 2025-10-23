@@ -1,4 +1,4 @@
-name: Deploy Terraform (dev)
+name: Deploy Terraform (dev eu-central-1)
 
 on:
   workflow_run:
