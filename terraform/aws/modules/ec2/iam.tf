@@ -1,6 +1,8 @@
-# IAM Role for EC2
+// IAM for ec2 instance (role + instance profile) to allow ECR read and SecretsManager access
+data "aws_caller_identity" "current" {}
+
 resource "aws_iam_role" "ec2_role" {
-  name = "${var.asg_name}-role"
+  name = "${var.instance_name}-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -28,12 +30,12 @@ resource "aws_iam_role_policy_attachment" "cw_logs" {
 
 # IAM Instance Profile
 resource "aws_iam_instance_profile" "ec2_profile" {
-  name = "${var.asg_name}-profile"
+  name = "${var.instance_name}-profile"
   role = aws_iam_role.ec2_role.name
 }
 
 resource "aws_iam_role_policy" "secrets_read" {
-  name = "${var.asg_name}-secrets-read"
+  name = "${var.instance_name}-secrets-read"
   role = aws_iam_role.ec2_role.id
 
   policy = jsonencode({

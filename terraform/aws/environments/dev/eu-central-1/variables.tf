@@ -28,14 +28,8 @@ variable "ssh_key_name" {
   default     = "incode-demo-1-eu-central-1-key"
 }
 
-variable "db_username" {
-  description = "Database username to pass to instances (override in dev.tfvars)"
+variable "my_external_ip_address" {
+  description = "My external IP address"
   type        = string
-  default     = "user"
-}
-
-variable "db_password" {
-  description = "Database password to pass to instances (override in dev.tfvars). Prefer secrets manager in production."
-  type        = string
-  default     = ""
+  default     = "87.116.165.146/32"
 }

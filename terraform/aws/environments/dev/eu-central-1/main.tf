@@ -33,7 +33,43 @@ module "alb_sg" {
       from_port   = 80
       to_port     = 80
       protocol    = "tcp"
-      cidr_blocks = "87.116.165.146/32"
+      cidr_blocks = var.my_external_ip_address
+    }
+  ]
+
+  egress_with_cidr_blocks = [
+    {
+      description = "Allow all outbound"
+      from_port   = 0
+      to_port     = 0
+      protocol    = "-1"
+      cidr_blocks = "0.0.0.0/0"
+    }
+  ]
+
+  tags = {
+    Environment = var.environment
+    Project     = var.project
+  }
+
+  depends_on = [module.vpc]
+}
+
+########################################### Security Group for Bastion ############################
+module "bastion_sg" {
+  source  = "terraform-aws-modules/security-group/aws"
+
+  name        = "${var.project}-${var.environment}-${var.region}-bastion-sg"
+  description = "Security group for bastion host"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress_with_cidr_blocks = [
+    {
+      description = "Allow SSH (22) from My IP"
+      from_port   = 22
+      to_port     = 22
+      protocol    = "tcp"
+      cidr_blocks = var.my_external_ip_address
     }
   ]
 
@@ -133,7 +169,6 @@ module "db" {
 
   engine            = "mysql"
   engine_version    = "8.0.43"
-  # Using Graviton t4g now that engine is 8.0.43 which supports ARM
   instance_class    = "db.t4g.micro"
   allocated_storage = 5
 
@@ -199,7 +234,7 @@ module "db" {
 }
 
 
-########################################### ALB #################################################################
+########################################### ALB #######################################################
 module "alb" {
   source = "../../../modules/alb"
 
@@ -217,7 +252,28 @@ module "alb" {
 
 }
 
-########################################### Auto Scaling Group ##########################################
+########################################### Bastion Host ##############################################
+module "bastion" {
+  source = "../../../modules/ec2"
+
+  region               = var.region
+  vpc_id               = module.vpc.vpc_id
+  instance_name        = "${var.project}-${var.environment}-bastion"
+  instance_type        = "t3.micro"
+  subnet_id            = module.vpc.public_subnets[0]
+  security_group_ids   = [module.bastion_sg.security_group_id]
+  key_name             = var.ssh_key_name
+  associate_public_ip  = true
+
+  tags = {
+    Environment = var.environment
+    Project     = var.project
+  }
+
+  depends_on = [module.vpc, module.bastion_sg]
+}
+
+########################################### Auto Scaling Group ########################################
 module "asg" {
   source = "../../../modules/asg"
 
@@ -227,7 +283,7 @@ module "asg" {
   ecr_repo          = module.ecr.repository_url
   container_port    = 8080
   region            = var.region
-  app_version       = "latest"
+  app_version       = "0.1.2"
 
   min_size         = 2
   max_size         = 2

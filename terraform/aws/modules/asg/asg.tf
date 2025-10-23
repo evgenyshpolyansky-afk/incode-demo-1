@@ -22,7 +22,13 @@ resource "aws_autoscaling_group" "this" {
     aws_launch_template.this
   ]
 
-  lifecycle {
-    replace_triggered_by = [aws_launch_template.this]
+  # Perform rolling instance refreshes when the launch template changes
+  instance_refresh {
+    strategy = "Rolling"
+
+    preferences {
+      min_healthy_percentage = 50
+      instance_warmup        = 300
+    }
   }
 }
