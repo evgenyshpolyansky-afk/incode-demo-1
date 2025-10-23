@@ -48,7 +48,8 @@ Key directories:
 1. Network & infra: The `vpc` module creates the VPC and subnets. Environment `main.tf` wires up security groups and other infra modules.
 2. RDS: The environment creates an RDS instance (MySQL) via a registry module. The RDS module creates a Secrets Manager secret that contains the DB credentials and outputs the secret ARN.
 3. ECR & app: The `ecr` module contains an ECR repository where you push the sample Flask Docker image.
-4. ASG & instances:
+4. ALB: The `alb` module creates an Application Load Balancer with target groups that distributes incoming traffic across the EC2 instances in the Auto Scaling Group. The ALB provides health checks and ensures traffic is only routed to healthy instances.
+5. ASG & instances:
 	 - The `asg` module creates a Launch Template with a `user_data` script that logs into ECR, pulls the specified image tag and runs it with appropriate environment variables.
 	 - The Launch Template is versioned. When the user updates `app_version` in the environment, the Launch Template changes. The ASG is configured to perform an Instance Refresh which performs a rolling replacement of instances (no full ASG replacement), avoiding downtime.
 	 - The `user_data` script fetches DB credentials at boot from Secrets Manager (using a secret ARN passed to the module) so credentials are never stored in Terraform state.
