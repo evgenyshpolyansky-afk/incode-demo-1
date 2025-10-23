@@ -1,3 +1,4 @@
 environment = "dev"
 region      = "eu-central-1"
-vpc_cidr     = "10.0.0.0/16"
+vpc_cidr    = "10.0.0.0/16"
+app_version = "20251023125135-7552290"

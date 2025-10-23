@@ -33,3 +33,9 @@ variable "my_external_ip_address" {
   type        = string
   default     = "87.116.165.146/32"
 }
+
+variable "app_version" {
+  description = "Application version to deploy"
+  type        = string
+  default     = "latest"
+}

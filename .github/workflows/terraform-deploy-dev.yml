@@ -1,0 +1,54 @@
+name: Deploy Terraform (dev)
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  terraform-deploy-dev:
+    if: ${{ github.actor == 'github-actions[bot]' && contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Read app version tag
+        id: read_version
+        run: |
+          if [ ! -f apps/version.txt ]; then
+            echo "apps/version.txt not found" >&2; exit 1
+          fi
+          FULL=$(cat apps/version.txt | tr -d '\n')
+          echo "Full image: $FULL"
+          # extract part after last ':' which is the tag
+          TAG=${FULL##*:}
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          echo "app_tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.6.0
+
+      - name: Configure AWS credentials for Terraform
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_TERRAFORM }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_TERRAFORM }}
+          aws-region: eu-central-1
+
+      - name: Terraform init
+        working-directory: terraform/aws/environments/dev/eu-central-1
+        run: terraform init -input=false
+
+      - name: Terraform apply (set app_version)
+        working-directory: terraform/aws/environments/dev/eu-central-1
+        env:
+          TF_VAR_app_version: ${{ env.TAG }}
+        run: terraform apply -auto-approve -var="app_version=${{ env.TAG }}"

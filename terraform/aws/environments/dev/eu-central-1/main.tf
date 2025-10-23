@@ -283,7 +283,7 @@ module "asg" {
   ecr_repo          = module.ecr.repository_url
   container_port    = 8080
   region            = var.region
-  app_version       = "0.1.2"
+  app_version       = var.app_version
 
   min_size         = 2
   max_size         = 2
