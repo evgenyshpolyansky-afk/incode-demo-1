@@ -1,6 +1,16 @@
 name: Deploy Terraform (dev)
 
 on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: 'Trigger source'
+        required: false
+        default: ''
+      tag:
+        description: 'App image tag'
+        required: false
+        default: ''
   push:
     branches: [ main ]
 
@@ -9,7 +19,7 @@ permissions:
 
 jobs:
   terraform-deploy-dev:
-    if: ${{ github.actor == 'github-actions[bot]' && contains(github.event.head_commit.message, '[skip ci]') }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.source == 'build-and-publish') || (github.event_name == 'push' && github.actor == 'github-actions[bot]' && contains(github.event.head_commit.message, '[skip ci]')) }}
     runs-on: ubuntu-latest
     environment: dev
     steps:
@@ -21,13 +31,18 @@ jobs:
       - name: Read app version tag
         id: read_version
         run: |
-          if [ ! -f apps/version.txt ]; then
-            echo "apps/version.txt not found" >&2; exit 1
+          # Prefer tag passed by workflow_dispatch input
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.tag }}" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+            echo "Using tag from workflow_dispatch: $TAG"
+          else
+            if [ ! -f apps/version.txt ]; then
+              echo "apps/version.txt not found" >&2; exit 1
+            fi
+            FULL=$(cat apps/version.txt | tr -d '\n')
+            echo "Full image: $FULL"
+            TAG=${FULL##*:}
           fi
-          FULL=$(cat apps/version.txt | tr -d '\n')
-          echo "Full image: $FULL"
-          # extract part after last ':' which is the tag
-          TAG=${FULL##*:}
           echo "TAG=$TAG" >> $GITHUB_ENV
           echo "app_tag=$TAG" >> $GITHUB_OUTPUT
 
