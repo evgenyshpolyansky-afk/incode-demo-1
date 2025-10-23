@@ -8,7 +8,7 @@ resource "aws_autoscaling_group" "this" {
 
   launch_template {
     id      = aws_launch_template.this.id
-    version = "$Latest"
+    version = aws_launch_template.this.latest_version
   }
   target_group_arns         = [var.target_group_arn]
 
@@ -18,6 +18,12 @@ resource "aws_autoscaling_group" "this" {
     propagate_at_launch = true
   }
 
+  tag {
+    key                 = "LaunchTemplateVersion"
+    value               = aws_launch_template.this.latest_version
+    propagate_at_launch = false
+  }
+
   depends_on = [
     aws_launch_template.this
   ]
@@ -25,6 +31,8 @@ resource "aws_autoscaling_group" "this" {
   # Perform rolling instance refreshes when the launch template changes
   instance_refresh {
     strategy = "Rolling"
+    
+    triggers = ["tag"]
 
     preferences {
       min_healthy_percentage = 50
