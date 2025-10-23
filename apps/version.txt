@@ -1,1 +1,1 @@
-863418022499.dkr.ecr.eu-central-1.amazonaws.com/incode-demo-1-app:20251023132516-ddf12ed
+863418022499.dkr.ecr.eu-central-1.amazonaws.com/incode-demo-1-app:latest
