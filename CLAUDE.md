@@ -106,6 +106,24 @@ When `app_version` variable changes:
   3. Runs `terraform apply` with `-var="app_version=<tag>"`
   4. ASG Instance Refresh automatically triggered by Launch Template change
 
+### Validation Pipeline (terraform-validate.yml)
+- **Trigger**:
+  - Pull requests that modify `terraform/**` files
+  - Push to `main` that modifies `terraform/**` files
+  - Manual trigger via `workflow_dispatch`
+- **Execution**: Runs on `ubuntu-latest` GitHub-hosted runner
+- **Adaptive Tool Detection**: Automatically detects if Terragrunt is used in the project
+  - Checks for `terragrunt.hcl` or `.terragrunt-version` files
+  - If found: installs Terragrunt and uses `terragrunt validate`
+  - If not found: uses plain `terraform validate`
+- **Process**:
+  1. Detects Terragrunt presence in codebase
+  2. Installs appropriate tooling (Terraform 1.13.4, optionally Terragrunt 0.55.1)
+  3. Initializes Terraform with `-backend=false` (validation doesn't need remote state)
+  4. Validates all Terraform configurations
+  5. Checks Terraform formatting with `terraform fmt -check -recursive`
+- **Current Project**: Uses plain Terraform (no Terragrunt detected)
+
 ### Security Scan Pipeline (terraform-security-scan.yml)
 - **Trigger**:
   - Pull requests that modify `terraform/**` files
