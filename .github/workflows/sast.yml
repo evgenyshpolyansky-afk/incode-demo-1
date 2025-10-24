@@ -1,0 +1,206 @@
+name: SAST Security Analysis
+
+on:
+  pull_request:
+    paths:
+      - '**/*.py'
+      - 'apps/**'
+  push:
+    branches: [ main ]
+    paths:
+      - '**/*.py'
+      - 'apps/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  bandit:
+    name: Bandit Python Security Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Bandit and dependencies
+        run: |
+          python -m pip install --no-cache-dir --upgrade pip
+          python -m pip install --no-cache-dir \
+            bandit[toml]==1.7.9 \
+            jq
+          bandit --version
+
+      - name: 🔒 Run Bandit security analysis
+        run: |
+          echo "Running Bandit security analysis..."
+          bandit -r . \
+            -f json \
+            -o bandit-report.json \
+            --exclude ./tests,./test,./venv,./.venv,./node_modules,./terraform \
+            --severity-level medium \
+            --confidence-level medium \
+            || true
+
+      - name: 📊 Process Bandit results
+        if: always()
+        run: |
+          if [ -f bandit-report.json ]; then
+            ISSUE_COUNT=$(jq '.results | length' bandit-report.json)
+            echo "Bandit analysis complete. Found ${ISSUE_COUNT} issues."
+
+            # Create summary
+            echo "### Bandit Security Analysis Results" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Total Issues Found**: ${ISSUE_COUNT}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Show top issues if any
+            if [ "${ISSUE_COUNT}" -gt "0" ]; then
+              echo "#### Sample Issues:" >> $GITHUB_STEP_SUMMARY
+              jq -r '.results[0:5] | .[] | "- **\(.test_id)**: \(.issue_text) (Severity: \(.issue_severity), Confidence: \(.issue_confidence))"' bandit-report.json >> $GITHUB_STEP_SUMMARY || true
+            fi
+          fi
+
+      - name: Convert Bandit JSON to SARIF
+        if: always()
+        uses: microsoft/bandit-sarif-formatter@v1
+        with:
+          input: bandit-report.json
+          output: bandit-report.sarif
+        continue-on-error: true
+
+      - name: 📦 Upload Bandit SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: bandit-report.sarif
+          category: bandit
+        continue-on-error: true
+
+      - name: 📦 Upload Bandit reports as artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-security-reports
+          path: |
+            bandit-report.json
+            bandit-report.sarif
+          retention-days: 14
+
+  semgrep:
+    name: Semgrep Security Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Semgrep and sarif-tools
+        run: |
+          python -m pip install --no-cache-dir --upgrade pip
+          python -m pip install --no-cache-dir \
+            semgrep==1.95.0 \
+            sarif-tools
+          semgrep --version
+
+      - name: 🔍 Run Semgrep security analysis (SARIF)
+        run: |
+          echo "Running Semgrep security analysis..."
+          semgrep scan \
+            --config p/security-audit \
+            --config p/secrets \
+            --config p/owasp-top-ten \
+            --config p/python \
+            --no-git-ignore \
+            --sarif \
+            --output semgrep-report.sarif \
+            --metrics=off \
+            --exclude 'tests' \
+            --exclude 'test' \
+            --exclude '*.min.js' \
+            --exclude 'node_modules' \
+            --exclude 'venv' \
+            --exclude '.venv' \
+            --exclude 'terraform' \
+            . || true
+
+      - name: 🔍 Run Semgrep security analysis (JSON)
+        run: |
+          semgrep scan \
+            --config p/security-audit \
+            --config p/secrets \
+            --config p/owasp-top-ten \
+            --config p/python \
+            --no-git-ignore \
+            --json \
+            --output semgrep-report.json \
+            --metrics=off \
+            --exclude 'tests' \
+            --exclude 'test' \
+            --exclude '*.min.js' \
+            --exclude 'node_modules' \
+            --exclude 'venv' \
+            --exclude '.venv' \
+            --exclude 'terraform' \
+            . || true
+
+      - name: 📊 Generate HTML report from SARIF
+        if: always()
+        run: |
+          if [ -f semgrep-report.sarif ]; then
+            sarif html semgrep-report.sarif -o semgrep-report.html
+            echo "HTML report generated successfully"
+          fi
+        continue-on-error: true
+
+      - name: 📊 Process Semgrep results
+        if: always()
+        run: |
+          if [ -f semgrep-report.json ]; then
+            ISSUE_COUNT=$(jq '.results | length' semgrep-report.json 2>/dev/null || echo "0")
+            echo "Semgrep analysis complete. Found ${ISSUE_COUNT} issues."
+
+            # Create summary
+            echo "### Semgrep Security Analysis Results" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Total Issues Found**: ${ISSUE_COUNT}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Rulesets Used**:" >> $GITHUB_STEP_SUMMARY
+            echo "- security-audit" >> $GITHUB_STEP_SUMMARY
+            echo "- secrets" >> $GITHUB_STEP_SUMMARY
+            echo "- owasp-top-ten" >> $GITHUB_STEP_SUMMARY
+            echo "- python" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: 📦 Upload Semgrep SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep-report.sarif
+          category: semgrep
+        continue-on-error: true
+
+      - name: 📦 Upload Semgrep reports as artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-security-reports
+          path: |
+            semgrep-report.json
+            semgrep-report.sarif
+            semgrep-report.html
+          retention-days: 14

@@ -1,0 +1,124 @@
+name: Terraform Validate
+
+on:
+  pull_request:
+    paths:
+      - 'terraform/**'
+  push:
+    branches: [ main ]
+    paths:
+      - 'terraform/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  validate:
+    name: Terraform Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.13.4
+
+      - name: 🔍 Check for Terragrunt
+        id: check_terragrunt
+        run: |
+          if find terraform -name "terragrunt.hcl" -o -name ".terragrunt-version" | grep -q .; then
+            echo "terragrunt_found=true" >> $GITHUB_OUTPUT
+            echo "📦 Terragrunt configuration detected"
+          else
+            echo "terragrunt_found=false" >> $GITHUB_OUTPUT
+            echo "📦 No Terragrunt detected, using plain Terraform"
+          fi
+
+      - name: Setup Terragrunt
+        if: steps.check_terragrunt.outputs.terragrunt_found == 'true'
+        run: |
+          TERRAGRUNT_VERSION="0.55.1"
+          wget -q "https://github.com/gruntwork-io/terragrunt/releases/download/v${TERRAGRUNT_VERSION}/terragrunt_linux_amd64"
+          chmod +x terragrunt_linux_amd64
+          sudo mv terragrunt_linux_amd64 /usr/local/bin/terragrunt
+          terragrunt --version
+
+      - name: 🚀 Display versions
+        run: |
+          echo "🚀 Terraform version:"
+          terraform version
+          if [ "${{ steps.check_terragrunt.outputs.terragrunt_found }}" == "true" ]; then
+            echo "🚀 Terragrunt version:"
+            terragrunt --version
+          fi
+          echo "📋 Git Commit: ${{ github.sha }}"
+
+      - name: 🔍 Validate Terraform configurations (Terragrunt)
+        if: steps.check_terragrunt.outputs.terragrunt_found == 'true'
+        working-directory: terraform
+        run: |
+          echo "🔍 Validating Terraform configuration with Terragrunt..."
+          # Find all directories with terragrunt.hcl files
+          for dir in $(find . -name "terragrunt.hcl" -exec dirname {} \;); do
+            echo "📂 Validating: $dir"
+            cd "$dir"
+            terragrunt init -backend=false
+            terragrunt validate
+            cd -
+          done
+          echo "✅ Terragrunt validation completed successfully"
+
+      - name: 🔍 Validate Terraform configurations (Plain Terraform)
+        if: steps.check_terragrunt.outputs.terragrunt_found == 'false'
+        run: |
+          echo "🔍 Validating Terraform configurations..."
+          # Find all directories with .tf files (excluding .terraform directories)
+          for dir in $(find terraform -type f -name "*.tf" ! -path "*/.terraform/*" -exec dirname {} \; | sort -u); do
+            echo "📂 Validating: $dir"
+            cd "$dir"
+            # Initialize without backend for validation only
+            terraform init -backend=false
+            terraform validate
+            cd "$GITHUB_WORKSPACE"
+          done
+          echo "✅ Validation completed successfully"
+
+      - name: 🎨 Check Terraform formatting (Terragrunt)
+        if: steps.check_terragrunt.outputs.terragrunt_found == 'true'
+        working-directory: terraform
+        run: |
+          echo "🎨 Checking Terraform formatting..."
+          terraform fmt -check -recursive
+          echo "✅ Format check completed"
+
+      - name: 🎨 Check Terraform formatting (Plain Terraform)
+        if: steps.check_terragrunt.outputs.terragrunt_found == 'false'
+        working-directory: terraform
+        run: |
+          echo "🎨 Checking Terraform formatting..."
+          if ! terraform fmt -check -recursive; then
+            echo "❌ Terraform files are not properly formatted"
+            echo "Run 'terraform fmt -recursive' to fix formatting issues"
+            exit 1
+          fi
+          echo "✅ Format check completed"
+
+      - name: 📊 Validation Summary
+        if: always()
+        run: |
+          echo "### Terraform Validation Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check_terragrunt.outputs.terragrunt_found }}" == "true" ]; then
+            echo "- Tool: **Terragrunt + Terraform**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Tool: **Terraform**" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "- Terraform Version: **1.13.4**" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: **${{ github.sha }}**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Validation and formatting checks completed" >> $GITHUB_STEP_SUMMARY
