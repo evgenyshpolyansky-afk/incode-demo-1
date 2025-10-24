@@ -124,7 +124,7 @@ When `app_version` variable changes:
   5. Checks Terraform formatting with `terraform fmt -check -recursive`
 - **Current Project**: Uses plain Terraform (no Terragrunt detected)
 
-### Security Scan Pipeline (terraform-security-scan.yml)
+### Security Scan Pipeline - Terraform (terraform-security-scan.yml)
 - **Trigger**:
   - Pull requests that modify `terraform/**` files
   - Push to `main` that modifies `terraform/**` files
@@ -141,6 +141,39 @@ When `app_version` variable changes:
   - Security findings visible in GitHub Security → Code scanning
   - Downloadable reports in workflow artifacts
   - Automatic PR comments with findings (if enabled)
+
+### SAST Pipeline - Python Application (sast.yml)
+- **Trigger**:
+  - Pull requests that modify `**/*.py` or `apps/**` files
+  - Push to `main` that modifies Python code
+  - Manual trigger via `workflow_dispatch`
+- **Execution**: Two parallel jobs on `ubuntu-latest` runners
+- **Tools**:
+  - **Bandit 1.7.9**: Python-specific security linter for common security issues
+  - **Semgrep 1.95.0**: Semantic code analysis with multiple rulesets
+
+#### Bandit Job:
+- **Scans**: All Python code (excludes tests, venv, node_modules, terraform)
+- **Severity**: Medium and above
+- **Confidence**: Medium and above
+- **Reports**: JSON format, converted to SARIF for GitHub Security
+- **Artifacts**: Retained for 14 days
+
+#### Semgrep Job:
+- **Rulesets**:
+  - `p/security-audit`: General security patterns
+  - `p/secrets`: Hardcoded secrets detection
+  - `p/owasp-top-ten`: OWASP Top 10 vulnerabilities
+  - `p/python`: Python-specific security rules
+- **Reports**: JSON, SARIF, HTML (generated with sarif-tools)
+- **Artifacts**: Retained for 14 days
+- **Exclusions**: tests, migrations, minified JS, node_modules, venv, terraform
+
+#### SAST Outputs:
+- Security findings in GitHub Security → Code scanning (separate categories: bandit, semgrep)
+- Downloadable reports in workflow artifacts (JSON, SARIF, HTML)
+- Workflow summary with issue counts and sample findings
+- Both jobs use `continue-on-error: true` - workflow doesn't fail on findings
 
 ### Important CI/CD Notes
 - **Separate AWS credentials** with different permissions:
