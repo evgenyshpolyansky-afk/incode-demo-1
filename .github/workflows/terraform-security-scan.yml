@@ -1,0 +1,63 @@
+name: Terraform Security Scan
+
+on:
+  pull_request:
+    paths:
+      - 'terraform/**'
+  push:
+    branches: [ main ]
+    paths:
+      - 'terraform/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write  # For uploading SARIF results
+  pull-requests: write    # For PR comments
+
+jobs:
+  security-scan:
+    name: tfsec Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔒 Run tfsec security scan
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: terraform
+          format: json,junit,sarif,default
+          soft_fail: true
+          github_token: ${{ github.token }}
+        continue-on-error: true
+
+      - name: 📊 Upload tfsec SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: results.sarif
+        continue-on-error: true
+
+      - name: 📦 Upload tfsec reports as artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tfsec-security-reports
+          path: |
+            results.json
+            results.junit.xml
+            results.sarif
+          retention-days: 7
+
+      - name: 🔍 Security scan summary
+        if: always()
+        run: |
+          echo "🔍 Security scan completed"
+          echo "📊 Reports available in workflow artifacts"
+          if [ -f results.json ]; then
+            echo "### tfsec Security Scan Results" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Security scan has been completed. Check the artifacts for detailed reports." >> $GITHUB_STEP_SUMMARY
+          fi
